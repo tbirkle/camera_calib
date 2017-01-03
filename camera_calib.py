@@ -5,17 +5,17 @@ import scipy.misc
 import os
 
 
-SENSOR_SIZE = 0.00045
+PIXEL_SIZE = (4.5 * 10**(-6))**2
 E = 123
 WAVELENGTH = 0.000420
-CONSTANT = 5.034*10.24
+CONSTANT = 5.034* 10**24
 QUANTISATION_ERROR = 1/12
 
 
 
 
 def number_photons(exposure_times):
-    return CONSTANT * SENSOR_SIZE * E * exposure_times * WAVELENGTH
+    return CONSTANT * PIXEL_SIZE * E * exposure_times * WAVELENGTH
 
 def averageEvery2(x):
     mean_flat = np.vstack((x[0::2], x[1::2]))
@@ -24,7 +24,6 @@ def averageEvery2(x):
 def temporal_variance(x):
     y_a = x[0::2]
     y_b = x[1::2]
-
 
     size = 2* y_a[0].shape[0] * y_a[0].shape[1]
 
@@ -37,13 +36,14 @@ from scipy.misc import imsave
 def test(path):
     flat = os.listdir(path)
     for filename in flat:
-        img = plt.imread(os.path.join(path, filename))
+        img = scipy.misc.imread(os.path.join(path, filename))
         print(img.shape)
-        img = gaussian_filter(img, sigma=3)
+        img = img + np.random.normal(0, 3, img.shape)
+        #img = gaussian_filter(img, sigma=3)
         print(img.shape)
         imsave(os.path.join(path, filename.split(".")[0]+"_2.png"), img)
-
 """
+
 
 def read_dir(path):
     flat = os.listdir(path)
@@ -73,16 +73,16 @@ def read_dir(path):
 
 
 
+
 flat_images, std_flat, mean_flat, var_flat = read_dir("flat")
 dark_images, std_dark, mean_dark, var_dark = read_dir("dark")
 
 
-print(var_flat)
-print(var_dark)
 
-exp = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10 , 11, 12, 13, 14, 15])
 
-phot = number_photons(exp)
+exposure_times = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10 , 11, 12, 13, 14, 15])
+
+photons = number_photons(exposure_times)
 
 
 
@@ -91,7 +91,6 @@ phot = number_photons(exp)
 #phot_num = 5.034 * 10^24 # Sernsorflaeche_muss_noch_nachgeschaut_werden #Ill_intens[:len(Ill_intens)]  Ill_time[:len(Ill_intens)]
 
 max_idx = np.argmax(var_flat)
-print("mean_flat", mean_flat)
 print("Saturation", mean_flat[max_idx], max_idx)
 
 sat1 = mean_flat[max_idx] * 0.7
@@ -121,31 +120,78 @@ print("Full-Well:", max_var)
 plt.plot(mean_flat - mean_dark, var_flat - var_dark)
 
 
-"""Linearity"""
+"""Sensitivity"""
 reg_y = mean_reg_flat - mean_reg_dark
-reg_x = phot[:len(reg_y)]
+reg_x = photons[:len(reg_y)]
 regression = stats.linregress(reg_x, reg_y)
 slope = regression[0]
 
 
 plt.figure(2)
-plt.plot(phot, mean_flat-mean_dark)
+plt.plot(photons, mean_flat-mean_dark)
 
 plt.plot([0,reg_x[len(reg_x)-1]],[regression[1], regression[1]+regression[0]*reg_x[len(reg_x)-1]], "-")
 R = slope
 
 print("Responsitivity R: ", R)
-plt.show()
+
 
 """Quantum Efficiency"""
 QE = R / K
 print("Quantum Efficiency", QE)
 
 """Dark Noise"""
-dark_noise = (var_dark-QUANTISATION_ERROR) / K**2
+dark_noise = (var_dark[0]-QUANTISATION_ERROR) / K**2
+print("Dark Noise: ", dark_noise)
 
 
 """AUFGABE 1 ENDE"""
+
+
+"""Signal to Noise ratio"""
+
+SNR_each_pic = (mean_flat-mean_dark)/np.sqrt(var_flat)  #SNR für jede Belichtungszeit
+
+SNR_theor = (QE*photons)/np.sqrt(var_dark+(1/12/K**2)+QE*photons) #SNR aus den zuvor ermittelten Werten
+
+SNR_ideal = np.sqrt(photons) #SNR von idealem Sensor
+
+sat_photons = photons[len(mean_reg_flat)-1]
+
+test = SNR_theor[SNR_theor == 1]
+print(SNR_theor)
+
+photons_min = (1/QE) *((np.sqrt(var_dark[0])/K)+0.5) #Wie berechnet man var_dark ? Welche Bilder (Belichtungszeiten)?
+print(photons_min)
+
+plt.figure(3)
+
+#ax = fig3.axes()
+plt.yscale("log")
+plt.xscale("log")
+
+ideal, = plt.plot(photons, SNR_ideal,"r",label="ideale SNR")
+theo, = plt.plot(photons, SNR_theor,"g", label="theoretische SNR")
+real, = plt.plot(photons, SNR_each_pic,"bx", label="reale SNR")
+#plt.plot[[sat_photons,0],[sat_photons,10**10]]
+plt.plot([sat_photons, sat_photons],[0, 100000000], "--")
+plt.plot([photons_min, photons_min],[0, 100000000], "--")
+plt.plot()
+
+plt.legend(handles=[ideal, theo, real])
+
+
+"""Dynamikbereich"""
+
+DR = 20*np.log10((sat_photons/photons_min))
+print("Dynamikbereich: ", DR)
+
+plt.show()
+
+
+
+"""Ende Aufgabe 2"""
+
 
 
 #plt.imshow(flat_images[10], cmap='Greys')
