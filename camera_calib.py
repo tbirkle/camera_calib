@@ -299,12 +299,6 @@ plt.plot([0, len(p_dark_vert)//2],[DSNU,DSNU], "r--")
 """ENDE AUFGABE3"""
 
 """AUFGABE 4"""
-
-
-box = np.ones((5,5))
-print(box)
-print(mean_flat50_image.shape, mean_dark50_image.shape)
-
 lowpass = scipy.ndimage.uniform_filter(mean_flat50_image - mean_dark50_image, 5, mode="reflect")
 print(lowpass.shape)
 
@@ -322,6 +316,3 @@ plt.hist(mean_dark50_image.flatten())
 
 
 plt.show()
-#plt.imshow(flat_images[10], cmap='Greys')
-#plt.show()
-
