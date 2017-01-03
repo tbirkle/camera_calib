@@ -36,12 +36,16 @@ from scipy.misc import imsave
 def test(path):
     flat = os.listdir(path)
     for filename in flat:
-        img = scipy.misc.imread(os.path.join(path, filename))
-        print(img.shape)
-        img = img + np.random.normal(0, 3, img.shape)
-        #img = gaussian_filter(img, sigma=3)
-        print(img.shape)
-        imsave(os.path.join(path, filename.split(".")[0]+"_2.png"), img)
+        if(filename.split(".")[1] == "png"):
+            img = scipy.misc.imread(os.path.join(path, filename))
+            print(img.shape)
+            #img = gaussian_filter(img, sigma=3)
+            print(img.shape)
+            test1 = np.random.normal(0, 3, img.shape)
+            test2 = np.random.normal(0, 3, img.shape)
+
+            imsave(os.path.join(path, filename.split(".")[0] + ".png"), img + test1)
+            imsave(os.path.join(path, filename.split(".")[0]+"_2.png"), img + test2)
 """
 
 
@@ -51,11 +55,11 @@ def read_dir(path):
     std = np.array([])
     mean = np.array([])
     for filename in flat:
-        img = scipy.misc.imread(os.path.join(path, filename))
-        print(img.shape)
-        images.append(img)
-        std = np.append(std, img.std())
-        mean = np.append(mean, img.mean())
+        if (filename.split(".")[1] == "png"):
+            img = scipy.misc.imread(os.path.join(path, filename))
+            images.append(img)
+            std = np.append(std, img.std())
+            mean = np.append(mean, img.mean())
 
 
     images = np.asarray(images)
@@ -70,7 +74,6 @@ def read_dir(path):
     #var = averageEvery2(var)
 
     return images, std, mean, var
-
 
 
 
@@ -186,14 +189,139 @@ plt.legend(handles=[ideal, theo, real])
 DR = 20*np.log10((sat_photons/photons_min))
 print("Dynamikbereich: ", DR)
 
-plt.show()
+#plt.show()
 
 
 
 """Ende Aufgabe 2"""
 
+path = "50flat"
+images = []
+dir = os.listdir(path)
+for filename in dir:
+    if (filename.split(".")[1] == "png"):
+        img = scipy.misc.imread(os.path.join(path, filename))
+        images.append(img)
+
+flat50 = np.asarray(images)
 
 
+print("test", flat50.shape)
+
+mean_flat50_image = np.mean(flat50, axis=0)
+mean_flat50 = mean_flat50_image.mean()
+size = mean_flat50_image.shape[0] * mean_flat50_image.shape[1]
+
+variance_flat50 = (1/size) * (np.sum((mean_flat50_image - mean_flat50)**2))
+
+
+path = "50dark"
+images = []
+dir = os.listdir(path)
+for filename in dir:
+    if (filename.split(".")[1] == "png"):
+        img = scipy.misc.imread(os.path.join(path, filename))
+        images.append(img)
+
+dark50 = np.asarray(images)
+
+
+print("test", dark50.shape)
+
+mean_dark50_image = np.mean(dark50, axis=0)
+mean_dark50 = mean_dark50_image.mean()
+size = mean_dark50_image.shape[0] * mean_dark50_image.shape[1]
+variance_dark50 = (1/size) * (np.sum((mean_dark50_image - mean_dark50)**2))
+
+temporal_variance_flat50_image = (1/(len(flat50)-1)) * np.sum(flat50 - mean_flat50_image,axis=0)
+temporal_variance_flat50_stack = np.mean(temporal_variance_flat50_image)
+
+temporal_variance_dark50_image = (1/(len(dark50)-1)) * np.sum(dark50 - mean_dark50_image,axis=0)
+temporal_variance_dark50_stack = np.mean(temporal_variance_dark50_image)
+
+
+DSNU = variance_dark50 / K
+PRNU = np.sqrt(variance_flat50 - variance_dark50) / (mean_flat50 - mean_dark50)
+
+print("DSNU: ", DSNU, "e")
+print("PRNU: ", PRNU, "%")
+
+
+def power_spectrum(fft, axis=0):
+    return np.sqrt((1 / fft.shape[~axis]) * np.sum((fft * np.conj(fft)), axis=~axis))
+
+
+# mean_flat50_image =  mean_flat50_image - mean_flat50
+mean_flat50_image_diff = mean_flat50_image - mean_flat50
+mean_dark50_image_diff = mean_dark50_image - mean_dark50
+
+"""Spektrogramm PRNU Horizontal"""
+flat_fft_hor = np.fft.fft(mean_flat50_image_diff, axis=0)
+p_flat_hor = power_spectrum(flat_fft_hor, axis=0)
+plt.title("Spektrogramm PRNU Horizontal")
+plt.figure(4)
+plt.yscale("log")
+plt.plot(p_flat_hor[:len(p_flat_hor)//2])
+plt.plot([0, len(p_flat_hor)//2],[temporal_variance_flat50_stack,temporal_variance_flat50_stack], "g--")
+plt.plot([0, len(p_flat_hor)//2],[PRNU,PRNU], "r--")
+
+#plt.plot(range(len(p)//2), p[:len(p)//2])
+"""Spektrogramm PRNU Vertikal"""
+flat_fft_vert = np.fft.fft(mean_flat50_image_diff, axis=1)
+p_flat_vert = power_spectrum(flat_fft_vert, axis=1)
+plt.figure(5)
+plt.title("Spektrogramm PRNU Vertikal")
+plt.yscale("log")
+plt.plot(p_flat_vert[:len(p_flat_vert)//2])
+plt.plot([0, len(p_flat_vert)//2],[temporal_variance_flat50_stack,temporal_variance_flat50_stack], "g--")
+plt.plot([0, len(p_flat_vert)//2],[PRNU,PRNU], "r--")
+
+"""Spektrogramm DSNU Horizontal"""
+dark_fft_hor = np.fft.fft(mean_dark50_image_diff, axis=0)
+p_dark_hor = power_spectrum(dark_fft_hor, axis=0)
+plt.figure(6)
+plt.title("Spektrogramm DSNU Horizontal")
+plt.yscale("log")
+plt.plot(p_dark_hor[:len(p_dark_hor)//2])
+plt.plot([0, len(p_dark_hor)//2],[temporal_variance_dark50_stack,temporal_variance_dark50_stack], "g--")
+plt.plot([0, len(p_dark_hor)//2],[DSNU,DSNU], "r--")
+
+"""Spektrogramm DSNU Vertikal"""
+dark_fft_vert = np.fft.fft(mean_dark50_image_diff, axis=1)
+p_dark_vert = power_spectrum(dark_fft_vert, axis=1)
+plt.figure(7)
+plt.title("Spektrogramm DSNU Vertikal")
+plt.yscale("log")
+plt.plot(p_dark_vert[:len(p_dark_vert)//2])
+plt.plot([0, len(p_dark_vert)//2],[temporal_variance_dark50_stack,temporal_variance_dark50_stack], "g--")
+plt.plot([0, len(p_dark_vert)//2],[DSNU,DSNU], "r--")
+
+"""ENDE AUFGABE3"""
+
+"""AUFGABE 4"""
+
+
+box = np.ones((5,5))
+print(box)
+print(mean_flat50_image.shape, mean_dark50_image.shape)
+
+lowpass = scipy.ndimage.uniform_filter(mean_flat50_image - mean_dark50_image, 5, mode="reflect")
+print(lowpass.shape)
+
+highpass = mean_flat50_image - mean_dark50_image - lowpass
+
+plt.figure(8)
+plt.title("histogram PRNU")
+plt.yscale("log")
+plt.hist(highpass.flatten())
+
+plt.figure(9)
+plt.title("histogram DSNU")
+plt.yscale("log")
+plt.hist(mean_dark50_image.flatten())
+
+
+plt.show()
 #plt.imshow(flat_images[10], cmap='Greys')
 #plt.show()
 
