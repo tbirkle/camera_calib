@@ -30,6 +30,9 @@ def temporal_variance(x):
     variance = (1/size) * np.sum(np.subtract(y_a,y_b)**2, axis=(1,2))
     return variance
 
+def power_spectrum(fft, axis=0):
+    return np.sqrt((1 / fft.shape[~axis]) * np.sum((fft * np.conj(fft)), axis=~axis))
+
 from scipy.ndimage import gaussian_filter
 from scipy.misc import imsave
 """
@@ -41,57 +44,43 @@ def test(path):
             print(img.shape)
             #img = gaussian_filter(img, sigma=3)
             print(img.shape)
-            test1 = np.random.normal(0, 3, img.shape)
-            test2 = np.random.normal(0, 3, img.shape)
+            test1 = np.random.normal(-1, 1, img.shape)
+            test2 = np.random.normal(1, 2, img.shape)
 
             imsave(os.path.join(path, filename.split(".")[0] + ".png"), img + test1)
             imsave(os.path.join(path, filename.split(".")[0]+"_2.png"), img + test2)
 """
 
 
+
+
 def read_dir(path):
     flat = os.listdir(path)
     images = []
-    std = np.array([])
-    mean = np.array([])
     for filename in flat:
         if (filename.split(".")[1] == "png"):
             img = scipy.misc.imread(os.path.join(path, filename))
             images.append(img)
-            std = np.append(std, img.std())
-            mean = np.append(mean, img.mean())
-
 
     images = np.asarray(images)
-    #var = std ** 2
 
-
-    # Averaging every 2 values
-
-    mean = averageEvery2(mean)
-    var = temporal_variance(images)
-    #std = averageEvery2(std)
-    #var = averageEvery2(var)
-
-    return images, std, mean, var
+    return images
 
 
 
-flat_images, std_flat, mean_flat, var_flat = read_dir("flat")
-dark_images, std_dark, mean_dark, var_dark = read_dir("dark")
+flat_images = read_dir("flat")
+dark_images = read_dir("dark")
 
+mean_flat = averageEvery2(np.mean(flat_images, axis=(1,2)))
+mean_dark = averageEvery2(np.mean(dark_images, axis=(1,2)))
 
-
+var_flat = temporal_variance(flat_images)
+var_dark = temporal_variance(dark_images)
 
 exposure_times = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10 , 11, 12, 13, 14, 15])
 
 photons = number_photons(exposure_times)
 
-
-
-#Ill_intens = [Bel-staerke1, Bel-saerke2,...]
-#Ill_time = [Bel-zeit1, Bel-zeit2,...]
-#phot_num = 5.034 * 10^24 # Sernsorflaeche_muss_noch_nachgeschaut_werden #Ill_intens[:len(Ill_intens)]  Ill_time[:len(Ill_intens)]
 
 max_idx = np.argmax(var_flat)
 print("Saturation", mean_flat[max_idx], max_idx)
@@ -100,27 +89,27 @@ sat1 = mean_flat[max_idx] * 0.7
 
 mean_reg_flat = mean_flat[mean_flat < sat1]
 mean_reg_dark = mean_dark[:len(mean_reg_flat)]
-
 reg_x = mean_reg_flat - mean_reg_dark
 reg_y = var_flat[:len(mean_reg_flat)] - var_dark[:len(mean_reg_flat)]
-
 regression = stats.linregress(reg_x, reg_y)
 slope = regression[0]
+
 K = slope
-
 print("System gain K:", K)
+
 plt.figure(1)
+plt.title("Photon-Transfer-Curve")
 plt.plot([0,sat1],[regression[1],regression[1]+regression[0]*sat1])
+plt.plot(mean_flat - mean_dark, var_flat - var_dark)
 
 
-print(var_flat)
-print(max_idx)
+"""Full-well capacity"""
 max_var = max(var_flat - var_dark)
 print("Full-Well:", max_var)
 
 
 
-plt.plot(mean_flat - mean_dark, var_flat - var_dark)
+
 
 
 """Sensitivity"""
@@ -129,14 +118,14 @@ reg_x = photons[:len(reg_y)]
 regression = stats.linregress(reg_x, reg_y)
 slope = regression[0]
 
+R = slope
+print("Responsitivity R: ", R)
+
 
 plt.figure(2)
+plt.title("Sensitivity")
 plt.plot(photons, mean_flat-mean_dark)
-
 plt.plot([0,reg_x[len(reg_x)-1]],[regression[1], regression[1]+regression[0]*reg_x[len(reg_x)-1]], "-")
-R = slope
-
-print("Responsitivity R: ", R)
 
 
 """Quantum Efficiency"""
@@ -147,12 +136,10 @@ print("Quantum Efficiency", QE)
 dark_noise = (var_dark[0]-QUANTISATION_ERROR) / K**2
 print("Dark Noise: ", dark_noise)
 
-
 """AUFGABE 1 ENDE"""
 
 
 """Signal to Noise ratio"""
-
 SNR_each_pic = (mean_flat-mean_dark)/np.sqrt(var_flat)  #SNR für jede Belichtungszeit
 
 SNR_theor = (QE*photons)/np.sqrt(var_dark+(1/12/K**2)+QE*photons) #SNR aus den zuvor ermittelten Werten
@@ -161,14 +148,11 @@ SNR_ideal = np.sqrt(photons) #SNR von idealem Sensor
 
 sat_photons = photons[len(mean_reg_flat)-1]
 
-test = SNR_theor[SNR_theor == 1]
-print(SNR_theor)
-
 photons_min = (1/QE) *((np.sqrt(var_dark[0])/K)+0.5) #Wie berechnet man var_dark ? Welche Bilder (Belichtungszeiten)?
-print(photons_min)
+
 
 plt.figure(3)
-
+plt.title("SNR")
 #ax = fig3.axes()
 plt.yscale("log")
 plt.xscale("log")
@@ -195,19 +179,7 @@ print("Dynamikbereich: ", DR)
 
 """Ende Aufgabe 2"""
 
-path = "50flat"
-images = []
-dir = os.listdir(path)
-for filename in dir:
-    if (filename.split(".")[1] == "png"):
-        img = scipy.misc.imread(os.path.join(path, filename))
-        images.append(img)
-
-flat50 = np.asarray(images)
-
-
-print("test", flat50.shape)
-
+flat50 = read_dir("50flat")
 mean_flat50_image = np.mean(flat50, axis=0)
 mean_flat50 = mean_flat50_image.mean()
 size = mean_flat50_image.shape[0] * mean_flat50_image.shape[1]
@@ -215,19 +187,9 @@ size = mean_flat50_image.shape[0] * mean_flat50_image.shape[1]
 variance_flat50 = (1/size) * (np.sum((mean_flat50_image - mean_flat50)**2))
 
 
-path = "50dark"
-images = []
-dir = os.listdir(path)
-for filename in dir:
-    if (filename.split(".")[1] == "png"):
-        img = scipy.misc.imread(os.path.join(path, filename))
-        images.append(img)
-
-dark50 = np.asarray(images)
 
 
-print("test", dark50.shape)
-
+dark50 = read_dir("50dark")
 mean_dark50_image = np.mean(dark50, axis=0)
 mean_dark50 = mean_dark50_image.mean()
 size = mean_dark50_image.shape[0] * mean_dark50_image.shape[1]
@@ -247,8 +209,7 @@ print("DSNU: ", DSNU, "e")
 print("PRNU: ", PRNU, "%")
 
 
-def power_spectrum(fft, axis=0):
-    return np.sqrt((1 / fft.shape[~axis]) * np.sum((fft * np.conj(fft)), axis=~axis))
+
 
 
 # mean_flat50_image =  mean_flat50_image - mean_flat50
