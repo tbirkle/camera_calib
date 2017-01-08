@@ -136,13 +136,9 @@ print(regression_y)
 regression = stats.linregress(regression_x, regression_y)
 
 K = regression[0]
+K_offset = regression[1]
+K_error = regression[4]
 print("System gain K:", K)
-
-plt.figure(1)
-plt.title("Photon-Transfer-Curve")
-plt.plot([0,saturation_start],[regression[1],regression[1]+regression[0]*saturation_start])
-plt.plot(mean_without_noise, var_without_noise)
-plt.plot([mean_without_noise[saturation_idx], mean_without_noise[saturation_idx]],[var_without_noise[saturation_idx],0],"--")
 
 """Full-well capacity"""
 max_var = max(var_flat - var_dark)  # TODO ist das richtig?
@@ -155,17 +151,11 @@ print("Full-Well:", max_var)
 reg_y = mean_without_noise[mean_without_noise < saturation_start]
 reg_x = photons[:len(reg_y)]
 regression = stats.linregress(reg_x, reg_y)
-slope = regression[0]
 
-R = slope
+R = regression[0]
+R_offset = regression[1]
+R_error = regression[4]
 print("Responsitivity R: ", R)
-
-
-plt.figure(2)
-plt.title("Sensitivity")
-plt.plot(photons, mean_without_noise)
-plt.plot([0,reg_x[len(reg_x)-1]],[regression[1], regression[1]+regression[0]*reg_x[len(reg_x)-1]], "r--")
-
 
 """Quantum Efficiency"""
 QE = R / K
@@ -189,6 +179,33 @@ var_dark_noise = (var_dark_temp - QUANTISATION_ERROR) / K**2
 
 print("Variance Dark Noise: ", var_dark_noise, "e")
 print("Std Dark Noise: ", np.sqrt(var_dark_noise), "e")
+
+
+
+plt.figure(1)
+plt.title("Photon-Transfer-Curve")
+plt.ylabel(r'variance gray value  $\sigma_{y} - \sigma_{y.dark}$  $(DN^2)$')
+plt.xlabel(r'gray value - dark value  $\mu_{y} - \mu_{y.dark}$  $(DN)$')
+plt.text(50, 0.1, r'$\sigma^2_{{y.dark}}={:.2f} DN^2, K={:.3f} \pm{:.3f}\%$'.format(var_dark_noise, K, K_error))
+plt.plot([0,saturation_start],[K_offset,K_offset+K*saturation_start], "r--", label="fit")
+plt.plot(mean_without_noise, var_without_noise, "k+", label="data")
+plt.plot([mean_without_noise[saturation_idx], mean_without_noise[saturation_idx]],[var_without_noise[saturation_idx],0],"b--", label="sensitivity threshold" )
+plt.legend(loc="upper left")
+
+plt.figure(2)
+plt.title("Sensitivity")
+plt.xlabel(r'irradiation (photons/pixel)')
+plt.ylabel(r'gray value - dark value  $\mu_{y} - \mu_{y.dark}$  $(DN)$')
+plt.text(1, 100, r"$\mu_{{y.dark}}={:.2f} DN$".format(mean_dark[0]))
+plt.plot(photons, mean_without_noise, "k+", label="data")
+plt.plot([0,reg_x[len(reg_x)-1]],[R_offset, R_offset+R*reg_x[len(reg_x)-1]], "r--", label="fit")
+plt.legend(loc="upper left")
+
+
+
+
+
+
 
 """AUFGABE 1 ENDE"""
 
@@ -219,7 +236,7 @@ plt.plot([sat_photons, sat_photons],[0, SNR_ideal.max()+100], "--")
 plt.plot([photons_min, photons_min],[0, SNR_ideal.max()+100], "--")
 plt.plot()
 
-plt.legend(handles=[ideal, theo, real])
+plt.legend(handles=[ideal, theo, real], loc='upper left')
 
 
 """Dynamikbereich"""
@@ -277,47 +294,59 @@ mean_flat50_image_diff = mean_flat50_image - mean_flat50
 mean_dark50_image_diff = mean_dark50_image - mean_dark50
 
 """Spektrogramm PRNU Horizontal"""
-flat_fft_hor = (1/np.sqrt(mean_flat50_image_diff.size)) * np.fft.fft(mean_flat50_image_diff, axis=0)
-p_flat_hor = power_spectrum(flat_fft_hor, axis=0)
+flat_fft_hor = (1/np.sqrt(mean_flat50_image_diff.size)) * np.fft.fft(mean_flat50_image_diff, axis=1)
+p_flat_hor = power_spectrum(flat_fft_hor, axis=1)
 
 plt.figure(4)
 plt.title("Spektrogramm PRNU Horizontal")
+plt.ylabel("standard deviation(%)")
+plt.xlabel("frequency (cycles/pixel)")
 plt.yscale("log")
 plt.plot(p_flat_hor[:len(p_flat_hor)//2])
-plt.plot([0, len(p_flat_hor)//2],[std_flat50_stack,std_flat50_stack], "g--")
-plt.plot([0, len(p_flat_hor)//2],[PRNU,PRNU], "r--")
+plt.plot([0, len(p_flat_hor)//2],[std_flat50_stack,std_flat50_stack], "g--", label="temp.std {:.2f} DN".format(std_flat50_stack))
+plt.plot([0, len(p_flat_hor)//2],[PRNU,PRNU], "r--", label="spat.std {:.2f} DN".format(PRNU))
+plt.legend(loc="upper left")
 
 #plt.plot(range(len(p)//2), p[:len(p)//2])
 """Spektrogramm PRNU Vertikal"""
 
-flat_fft_vert = (1/np.sqrt(mean_flat50_image_diff.size)) * np.fft.fft(mean_flat50_image_diff, axis=1)
-p_flat_vert = power_spectrum(flat_fft_vert, axis=1)
+flat_fft_vert = (1/np.sqrt(mean_flat50_image_diff.size)) * np.fft.fft(mean_flat50_image_diff, axis=0)
+p_flat_vert = power_spectrum(flat_fft_vert, axis=0)
 plt.figure(5)
 plt.title("Spektrogramm PRNU Vertikal")
+plt.ylabel("standard deviation(%)")
+plt.xlabel("frequency (cycles/pixel)")
 plt.yscale("log")
 plt.plot(p_flat_vert[:len(p_flat_vert)//2])
-plt.plot([0, len(p_flat_vert)//2],[std_flat50_stack,std_flat50_stack], "g--")
-plt.plot([0, len(p_flat_vert)//2],[PRNU,PRNU], "r--")
+plt.plot([0, len(p_flat_vert)//2],[std_flat50_stack,std_flat50_stack], "g--", label="temp.std {:.2f} DN".format(std_flat50_stack))
+plt.plot([0, len(p_flat_vert)//2],[PRNU,PRNU], "r--", label="spat.std {:.2f} DN".format(PRNU))
+plt.legend(loc="upper left")
 
 """Spektrogramm DSNU Horizontal"""
-dark_fft_hor = (1/np.sqrt(mean_dark50_image_diff.size)) * np.fft.fft(mean_dark50_image_diff, axis=0)
-p_dark_hor = power_spectrum(dark_fft_hor, axis=0)
+dark_fft_hor = (1/np.sqrt(mean_dark50_image_diff.size)) * np.fft.fft(mean_dark50_image_diff, axis=1)
+p_dark_hor = power_spectrum(dark_fft_hor, axis=1)
 plt.figure(6)
 plt.title("Spektrogramm DSNU Horizontal")
+plt.ylabel("standard deviation(DN)")
+plt.xlabel("frequency (cycles/pixel)")
 plt.yscale("log")
 plt.plot(p_dark_hor[:len(p_dark_hor)//2])
-plt.plot([0, len(p_dark_hor)//2],[std_dark50_stack,std_dark50_stack], "g--")
-plt.plot([0, len(p_dark_hor)//2],[DSNU,DSNU], "r--")
+plt.plot([0, len(p_dark_hor)//2],[std_dark50_stack,std_dark50_stack], "g--", label="temp.std {:.2f} DN".format(std_dark50_stack))
+plt.plot([0, len(p_dark_hor)//2],[DSNU,DSNU], "r--", label="spat.std {:.2f} DN".format(DSNU))
+plt.legend(loc="upper left")
 
 """Spektrogramm DSNU Vertikal"""
-dark_fft_vert = (1/np.sqrt(mean_dark50_image_diff.size)) * np.fft.fft(mean_dark50_image_diff, axis=1)
-p_dark_vert = power_spectrum(dark_fft_vert, axis=1)
+dark_fft_vert = (1/np.sqrt(mean_dark50_image_diff.size)) * np.fft.fft(mean_dark50_image_diff, axis=0)
+p_dark_vert = power_spectrum(dark_fft_vert, axis=0)
 plt.figure(7)
 plt.title("Spektrogramm DSNU Vertikal")
+plt.ylabel("standard deviation(DN)")
+plt.xlabel("frequency (cycles/pixel)")
 plt.yscale("log")
 plt.plot(p_dark_vert[:len(p_dark_vert)//2])
-plt.plot([0, len(p_dark_vert)//2],[std_dark50_stack,std_dark50_stack], "g--")
-plt.plot([0, len(p_dark_vert)//2],[DSNU,DSNU], "r--")
+plt.plot([0, len(p_dark_vert)//2],[std_dark50_stack,std_dark50_stack], "g--", label="temp.std {:.2f} DN".format(std_dark50_stack))
+plt.plot([0, len(p_dark_vert)//2],[DSNU,DSNU], "r--", label="spat.std {:.2f} DN".format(DSNU))
+plt.legend(loc="upper left")
 
 """ENDE AUFGABE3"""
 
