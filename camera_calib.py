@@ -367,12 +367,41 @@ plt.title("histogram PRNU")
 plt.yscale("log")
 plt.hist(highpass.flatten(), bins=256)
 
+THRESHOLD = -5
+from matplotlib.patches import Circle
+plt.figure(9)
+fig, ax= plt.subplots(1)
+plt.title("Dead Pixels")
+dead_pixel_image = highpass
+pos_dead_pixel = np.where(dead_pixel_image < THRESHOLD)
+print("Number of dead pixels: ", len(pos_dead_pixel[0]))
+print("Dead pixel positions: ", pos_dead_pixel)
+#dead_pixel_image[dead_pixel_image > THRESHOLD] = 255
+#dead_pixel_image[dead_pixel_image < THRESHOLD] = 0
+ax.imshow(dead_pixel_image, cmap=plt.get_cmap("Greys"))
+for x,y in zip(*pos_dead_pixel):
+    ax.add_patch(Circle((x,y),10))
+
+
 #plt.plot(z)
 
-plt.figure(9)
+plt.figure(10)
 plt.title("histogram DSNU")
 plt.yscale("log")
 plt.hist(mean_dark50_image.flatten(), bins=256)
+
+THRESHOLD = 2.5
+
+plt.figure(11)
+plt.title("Hot Pixels")
+hot_pixel_image = mean_dark50_image
+pos_hot_pixel = np.where(hot_pixel_image > THRESHOLD)
+print("Number of dead pixels: ", len(pos_hot_pixel[0]))
+print("Dead pixel positions: ", pos_hot_pixel)
+#hot_pixel_image[hot_pixel_image > THRESHOLD] = 0
+#hot_pixel_image[hot_pixel_image < THRESHOLD] = 255
+plt.imshow(hot_pixel_image, cmap=plt.get_cmap("Greys"))
+
 
 
 plt.show()
