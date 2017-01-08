@@ -352,19 +352,27 @@ plt.legend(loc="upper left")
 
 """AUFGABE 4"""
 lowpass = scipy.ndimage.uniform_filter(mean_flat50_image - mean_dark50_image, 5, mode="reflect")
-print(lowpass.shape)
+
 
 highpass = mean_flat50_image - mean_dark50_image - lowpass
+
+highpass_hist = np.histogram(highpass.flatten())
+#highpass_hist
+
+#z = np.polyfit([x for x in range(highpass_hist[0].size)], highpass_hist[0], 3)
+
 
 plt.figure(8)
 plt.title("histogram PRNU")
 plt.yscale("log")
-plt.hist(highpass.flatten())
+plt.hist(highpass.flatten(), bins=256)
+
+#plt.plot(z)
 
 plt.figure(9)
 plt.title("histogram DSNU")
 plt.yscale("log")
-plt.hist(mean_dark50_image.flatten())
+plt.hist(mean_dark50_image.flatten(), bins=256)
 
 
 plt.show()
