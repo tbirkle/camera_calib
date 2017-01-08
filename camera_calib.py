@@ -31,12 +31,12 @@ def temporal_variance(x):
     return variance
 
 def power_spectrum(fft, axis=0):
-    if axis==0:
-        other_axis = 1
-    elif axis==1:
-        other_axis = 0
+    #if axis==0:
+    #    other_axis = 1
+    #elif axis==1:
+    #    other_axis = 0
 
-    return np.sqrt((1 / fft.shape[other_axis]) * np.sum((fft * np.conj(fft)), axis=other_axis))
+    return np.sqrt((1 / fft.shape[~axis]) * np.sum((fft * np.conj(fft)), axis=~axis))
 
 from scipy.ndimage import gaussian_filter
 from scipy.misc import imsave
