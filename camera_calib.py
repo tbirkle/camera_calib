@@ -84,7 +84,8 @@ flat_images = read_dir("mv")
 
 print(len(flat_images))
 
-dark1 = scipy.misc.imread(os.path.join("mv", "mv01-000a.png"), mode="I")
+dark1 = scipy.misc.imread(os.path.join("Mono640x480_12bit_mv", "mv01-000a.raw"), mode="I")
+print("asdf0", dark1)
 dark2 = scipy.misc.imread(os.path.join("mv", "mv01-000b.png"), mode="I")
 dark_images = [dark1, dark2] * 51
 
@@ -281,7 +282,7 @@ temporal_variance_dark50_image = (1/(len(dark50)-1)) * np.sum((dark50 - mean_dar
 temporal_variance_dark50_stack = np.mean(temporal_variance_dark50_image)
 std_dark50_stack = np.sqrt(temporal_variance_dark50_stack)
 
-DSNU = variance_dark50 / K
+DSNU = np.sqrt(variance_dark50) / K
 PRNU = np.sqrt(variance_flat50 - variance_dark50) / (mean_flat50 - mean_dark50)
 
 print("DSNU: ", DSNU, "e")
@@ -336,7 +337,7 @@ plt.xlabel("frequency (cycles/pixel)")
 plt.yscale("log")
 plt.plot(p_dark_hor[:len(p_dark_hor)//2])
 plt.plot([0, len(p_dark_hor)//2],[std_dark50_stack,std_dark50_stack], "g--", label="temp.std {:.2f} DN".format(std_dark50_stack))
-plt.plot([0, len(p_dark_hor)//2],[DSNU,DSNU], "r--", label="spat.std {:.2f} DN".format(DSNU))
+plt.plot([0, len(p_dark_hor)//2],[DSNU*K,DSNU*K], "r--", label="spat.std {:.2f} DN".format(DSNU*K))
 plt.legend(loc="upper left")
 
 """Spektrogramm DSNU Vertikal"""
@@ -349,7 +350,7 @@ plt.xlabel("frequency (cycles/pixel)")
 plt.yscale("log")
 plt.plot(p_dark_vert[:len(p_dark_vert)//2])
 plt.plot([0, len(p_dark_vert)//2],[std_dark50_stack,std_dark50_stack], "g--", label="temp.std {:.2f} DN".format(std_dark50_stack))
-plt.plot([0, len(p_dark_vert)//2],[DSNU,DSNU], "r--", label="spat.std {:.2f} DN".format(DSNU))
+plt.plot([0, len(p_dark_vert)//2],[DSNU*K,DSNU*K], "r--", label="spat.std {:.2f} DN".format(DSNU*K))
 plt.legend(loc="upper left")
 
 """ENDE AUFGABE3"""
@@ -410,6 +411,9 @@ plt.imshow(hot_pixel_image, cmap=plt.get_cmap("Greys"))
 for y,x in zip(*pos_hot_pixel):
     ax.add_patch(Circle((x,y),5))
 
+plt.show()
+
+exit()
 
 """FLAT-FIELDING"""
 dark_ff = read_dir("flat_fielding/dsnu")
@@ -438,4 +442,4 @@ plt.imshow(corrected_image, cmap=plt.get_cmap("Greys"))
 
 
 
-plt.show()
+
