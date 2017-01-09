@@ -38,6 +38,10 @@ def power_spectrum(fft, axis=0):
 
     return np.sqrt((1 / fft.shape[~axis]) * np.sum((fft * np.conj(fft)), axis=~axis))
 
+def flat_fielding(mean_flat50_image, mean_dark50_image, test_image):
+    return np.mean(mean_flat50_image) * ((test_image - mean_dark50_image)/(mean_flat50_image-mean_dark50_image))
+
+
 from scipy.ndimage import gaussian_filter
 from scipy.misc import imsave
 """
@@ -369,8 +373,8 @@ plt.hist(highpass.flatten(), bins=256)
 
 THRESHOLD = -5
 from matplotlib.patches import Circle
-plt.figure(9)
-fig, ax= plt.subplots(1)
+fig = plt.figure(9)
+ax = fig.gca()
 plt.title("Dead Pixels")
 dead_pixel_image = highpass
 pos_dead_pixel = np.where(dead_pixel_image < THRESHOLD)
@@ -379,8 +383,9 @@ print("Dead pixel positions: ", pos_dead_pixel)
 #dead_pixel_image[dead_pixel_image > THRESHOLD] = 255
 #dead_pixel_image[dead_pixel_image < THRESHOLD] = 0
 ax.imshow(dead_pixel_image, cmap=plt.get_cmap("Greys"))
-for x,y in zip(*pos_dead_pixel):
-    ax.add_patch(Circle((x,y),10))
+for y,x in zip(*pos_dead_pixel):
+    ax.add_patch(Circle((x,y),5))
+
 
 
 #plt.plot(z)
@@ -392,7 +397,8 @@ plt.hist(mean_dark50_image.flatten(), bins=256)
 
 THRESHOLD = 2.5
 
-plt.figure(11)
+fig = plt.figure(11)
+ax = fig.gca()
 plt.title("Hot Pixels")
 hot_pixel_image = mean_dark50_image
 pos_hot_pixel = np.where(hot_pixel_image > THRESHOLD)
@@ -401,6 +407,34 @@ print("Dead pixel positions: ", pos_hot_pixel)
 #hot_pixel_image[hot_pixel_image > THRESHOLD] = 0
 #hot_pixel_image[hot_pixel_image < THRESHOLD] = 255
 plt.imshow(hot_pixel_image, cmap=plt.get_cmap("Greys"))
+for y,x in zip(*pos_hot_pixel):
+    ax.add_patch(Circle((x,y),5))
+
+
+"""FLAT-FIELDING"""
+dark_ff = read_dir("flat_fielding/dsnu")
+flat_ff = read_dir("flat_fielding/prnu")
+test_image = scipy.misc.imread(os.path.join("flat_fielding", "test.png"), mode="I")
+test_image = scipy.misc.imresize(test_image, (640,480))
+mean_dark_ff_image = np.mean(dark_ff, axis=0)
+mean_flat_ff_image = np.mean(flat_ff, axis=0)
+
+print(mean_dark_ff_image.shape, test_image.shape)
+
+plt.figure(12)
+plt.subplot(221)
+plt.title("test image without correction")
+plt.imshow(test_image, cmap=plt.get_cmap("Greys"))
+
+
+corrected_image = test_image
+
+#corrected_image = flat_fielding(mean_flat_ff_image, mean_dark_ff_image, test_image)
+plt.subplot(224)
+plt.title("test image corrected")
+plt.imshow(corrected_image, cmap=plt.get_cmap("Greys"))
+
+
 
 
 
