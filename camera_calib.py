@@ -11,30 +11,7 @@ import skimage.io
 
 
 #50% sat = 8.58ms
-"""
-img = scipy.misc.imread("flat/"+"flat_24.png")
 
-img = np.asarray((img / 2 ** 16) * 2 ** 12, dtype=np.uint16)
-
-img_rgb = cv2.cvtColor(img, cv2.COLOR_BayerRG2RGB)
-img = img_rgb[:,:,1]
-
-plt.figure(1)
-plt.imshow(img_rgb)
-
-plt.figure(2)
-scipy.misc.imsave("testrot.png",img_rgb[:,:,0])
-
-
-plt.figure(3)
-scipy.misc.imsave("testgr.png", img_rgb[:,:,1])
-
-plt.figure(4)
-scipy.misc.imsave("testbl.png", img_rgb[:,:,2])
-
-exit()
-plt.show()
-"""
 PIXEL_SIZE = (4.5 * 10**(-6))**2
 E = 0.1217 #13.97 # 46.85nA / 3.352nA/lx = 13.97lx
 WAVELENGTH = 0.000000525
@@ -43,9 +20,6 @@ QUANTISATION_ERROR = 1/12
 
 BIT = 12
 
-#print(np.linspace(0.02, 20, 15))
-
-#exit()
 
 def number_photons(exposure_times):
     return CONSTANT * PIXEL_SIZE * E * exposure_times * WAVELENGTH
@@ -64,11 +38,6 @@ def temporal_variance(x):
     return variance
 
 def power_spectrum(fft, axis=0):
-    #if axis==0:
-    #    other_axis = 1
-    #elif axis==1:
-    #    other_axis = 0
-
     return np.sqrt((1 / fft.shape[~axis]) * np.sum((fft * np.conj(fft)), axis=~axis))
 
 def flat_fielding(mean_flat50_image, mean_dark50_image, test_image):
@@ -80,24 +49,12 @@ def read_dir(path):
     images = []
     for filename in flat:
         if (filename.split(".")[1] == "png"):
-            #print(filename)
             img = scipy.misc.imread(os.path.join(path, filename))
-            #print(img.shape, img.dtype, img.max(), img.min(), img.mean())
-
             img = np.asarray((img / 2**16) * 2**BIT, dtype=np.uint16)
-
             img_rgb = cv2.cvtColor(img, cv2.COLOR_BayerRG2RGB)
-            img = img_rgb[:,:,1]
-
-            #print(img.shape, img.dtype, img.max(), img.min(), img.mean())
-
-            #img = cv2.cvtColor(img, cv2.COLOR_BAYER_BG2BGR)
-            #scipy.misc.imsave("test1234.png", img)#, cmap="Greys")#[:,:,1], cmap="Greys")
-           # print(img[:,:,2])
-            #print(img.shape, img.dtype, img.max(), img.min(), img.mean())
-            #plt.show()
-            #exit()
+            img = img_rgb[:,:,1] # green
             images.append(img)
+
     images = np.asarray(images)
 
     return images
@@ -107,17 +64,6 @@ def read_dir(path):
 flat_images = read_dir("flat")
 dark_images = read_dir("dark")
 
-print(len(flat_images))
-
-"""
-dark1 = scipy.misc.imread(os.path.join("mv", "mv01-000a.png"), mode="I")
-dark1 = np.asarray((dark1 / 255) * 2 ** BIT - 1, dtype=np.uint16)
-
-dark2 = scipy.misc.imread(os.path.join("mv", "mv01-000b.png"), mode="I")
-dark2 = np.asarray((dark2 / 255) * 2 ** BIT - 1, dtype=np.uint16)
-
-dark_images = [dark1, dark2] * 51
-"""
 print(flat_images.shape)
 print(np.mean(flat_images, axis=(1,2)))
 
@@ -300,7 +246,7 @@ temporal_variance_dark50_image = (1/(len(dark50)-1)) * np.sum((dark50 - mean_dar
 temporal_variance_dark50_stack = np.mean(temporal_variance_dark50_image)
 std_dark50_stack = np.sqrt(temporal_variance_dark50_stack)
 
-DSNU = variance_dark50 / K
+DSNU = np.sqrt(variance_dark50) / K
 PRNU = np.sqrt(variance_flat50 - variance_dark50) / (mean_flat50 - mean_dark50)
 
 print("DSNU: ", DSNU, "e")
@@ -355,7 +301,7 @@ plt.xlabel("frequency (cycles/pixel)")
 plt.yscale("log")
 plt.plot(p_dark_hor[:len(p_dark_hor)//2])
 plt.plot([0, len(p_dark_hor)//2],[std_dark50_stack,std_dark50_stack], "g--", label="temp.std {:.2f} DN".format(std_dark50_stack))
-plt.plot([0, len(p_dark_hor)//2],[DSNU,DSNU], "r--", label="spat.std {:.2f} DN".format(DSNU))
+plt.plot([0, len(p_dark_hor)//2],[DSNU*K,DSNU*K], "r--", label="spat.std {:.2f} DN".format(DSNU*K))
 plt.legend(loc="upper left")
 
 """Spektrogramm DSNU Vertikal"""
@@ -368,7 +314,7 @@ plt.xlabel("frequency (cycles/pixel)")
 plt.yscale("log")
 plt.plot(p_dark_vert[:len(p_dark_vert)//2])
 plt.plot([0, len(p_dark_vert)//2],[std_dark50_stack,std_dark50_stack], "g--", label="temp.std {:.2f} DN".format(std_dark50_stack))
-plt.plot([0, len(p_dark_vert)//2],[DSNU,DSNU], "r--", label="spat.std {:.2f} DN".format(DSNU))
+plt.plot([0, len(p_dark_vert)//2],[DSNU*K,DSNU*K], "r--", label="spat.std {:.2f} DN".format(DSNU*K))
 plt.legend(loc="upper left")
 
 """ENDE AUFGABE3"""
