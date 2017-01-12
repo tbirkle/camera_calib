@@ -4,16 +4,37 @@ from scipy import stats
 import scipy.misc
 import scipy.ndimage
 import os
+import cv2
 
 from matplotlib.patches import Circle
 import skimage.io
 
 
 #50% sat = 8.58ms
+"""
+img = scipy.misc.imread("flat/"+"flat_24.png")
+
+img = np.asarray((img / 2 ** 16) * 2 ** 12, dtype=np.uint16)
+
+img_rgb = cv2.cvtColor(img, cv2.COLOR_BayerRG2RGB)
+img = img_rgb[:,:,1]
+
+plt.figure(1)
+plt.imshow(img_rgb)
+
+plt.figure(2)
+scipy.misc.imsave("testrot.png",img_rgb[:,:,0])
 
 
+plt.figure(3)
+scipy.misc.imsave("testgr.png", img_rgb[:,:,1])
 
+plt.figure(4)
+scipy.misc.imsave("testbl.png", img_rgb[:,:,2])
 
+exit()
+plt.show()
+"""
 PIXEL_SIZE = (4.5 * 10**(-6))**2
 E = 0.1217 #13.97 # 46.85nA / 3.352nA/lx = 13.97lx
 WAVELENGTH = 0.000000525
@@ -55,16 +76,27 @@ def flat_fielding(mean_flat50_image, mean_dark50_image, test_image):
 
 
 def read_dir(path):
-    flat = os.listdir(path)
+    flat = sorted(os.listdir(path))
     images = []
     for filename in flat:
         if (filename.split(".")[1] == "png"):
+            #print(filename)
             img = scipy.misc.imread(os.path.join(path, filename))
-            print(img.shape, img.dtype, img.max(), img.min(), img.mean())
+            #print(img.shape, img.dtype, img.max(), img.min(), img.mean())
 
-            img = np.asarray((img / 2**16) * 2**BIT-1, dtype=np.uint16)
-            print(img.shape, img.dtype, img.max(), img.min(), img.mean())
+            img = np.asarray((img / 2**16) * 2**BIT, dtype=np.uint16)
 
+            img_rgb = cv2.cvtColor(img, cv2.COLOR_BayerRG2RGB)
+            img = img_rgb[:,:,1]
+
+            #print(img.shape, img.dtype, img.max(), img.min(), img.mean())
+
+            #img = cv2.cvtColor(img, cv2.COLOR_BAYER_BG2BGR)
+            #scipy.misc.imsave("test1234.png", img)#, cmap="Greys")#[:,:,1], cmap="Greys")
+           # print(img[:,:,2])
+            #print(img.shape, img.dtype, img.max(), img.min(), img.mean())
+            #plt.show()
+            #exit()
             images.append(img)
     images = np.asarray(images)
 
@@ -86,11 +118,18 @@ dark2 = np.asarray((dark2 / 255) * 2 ** BIT - 1, dtype=np.uint16)
 
 dark_images = [dark1, dark2] * 51
 """
-
+print(flat_images.shape)
 print(np.mean(flat_images, axis=(1,2)))
+
+test = np.mean(flat_images, axis=(1,2))
+print(test.shape)
 
 mean_flat = averageEvery2(np.mean(flat_images, axis=(1,2)))
 mean_dark = averageEvery2(np.mean(dark_images, axis=(1,2)))
+
+
+print(mean_flat.shape)
+
 
 print(mean_flat)
 print(mean_dark)
@@ -98,28 +137,12 @@ print(mean_dark)
 var_flat = temporal_variance(flat_images)
 var_dark = temporal_variance(dark_images)
 
-exposure_times = np.linspace(0.02, 20, 15) #np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10 , 11, 12, 13, 14, 15])
-
+exposure_times = np.linspace(0.02, 20, 15) / 1000#np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10 , 11, 12, 13, 14, 15])
+print("exposure times",exposure_times)
 photons = number_photons(exposure_times)
-#photons = []
-#for i in range(51):
-#    photons.append(i * 1659.66)
 
-#photons = np.asarray(photons)
+print("photons", photons)
 
-"""
-max_idx = np.argmax(var_flat)
-print("Saturation", mean_flat[max_idx], max_idx)
-
-sat1 = mean_flat[max_idx] * 0.7
-
-mean_reg_flat = mean_flat[mean_flat < sat1]
-mean_reg_dark = mean_dark[:len(mean_reg_flat)]
-reg_x = mean_reg_flat - mean_reg_dark
-reg_y = var_flat[:len(mean_reg_flat)] - var_dark[:len(mean_reg_flat)]
-regression = stats.linregress(reg_x, reg_y)
-slope = regression[0]
-"""
 
 mean_without_noise = mean_flat - mean_dark
 var_without_noise = var_flat - var_dark
@@ -208,7 +231,6 @@ plt.legend(loc="upper left")
 
 
 
-
 """AUFGABE 1 ENDE"""
 
 
@@ -247,7 +269,6 @@ DR = 20*np.log10((sat_photons/photons_min))
 print("Dynamikbereich: ", DR)
 
 #plt.show()
-
 
 
 """Ende Aufgabe 2"""
@@ -407,16 +428,16 @@ print("pdf", pdf.shape, pdf)
 plt.figure(8)
 plt.title("histogram PRNU")
 plt.yscale("log")
-#plt.ylim(bottom=10**(-1))
+plt.ylim(ymin=10**(-1), ymax=10**5)
 
 #histo = np.histogram(highpass.flatten(), bins=Q, range=(highpass.min(), highpass.max()))
 plt.hist(highpass.flatten(), bins=2**BIT)
 #print("histo[1]", histo[1].shape, histo[0].shape)
 #plt.bar(histo[1][:-1], histo[0])
 #plt.plot(highpass_hist[0] * histo[0].max())
-"""
 
-THRESHOLD = -400
+
+THRESHOLD = -100
 fig = plt.figure(9)
 ax = fig.gca()
 plt.title("Dead Pixels")
@@ -428,30 +449,31 @@ print("Dead pixel positions: ", pos_dead_pixel)
 #dead_pixel_image[dead_pixel_image < THRESHOLD] = 0
 ax.imshow(dead_pixel_image, cmap=plt.get_cmap("Greys"))
 for y,x in zip(*pos_dead_pixel):
-    ax.add_patch(Circle((x,y),5))
-"""
+    ax.add_patch(Circle((x,y),5,color="r"))
+
 
 plt.figure(10)
 plt.title("histogram DSNU")
 plt.yscale("log")
-plt.ylim(-1)
+plt.ylim(ymin=10**(-1), ymax=10**5)
+
 plt.hist(mean_dark50_image.flatten(), bins=2**BIT)
-"""
-THRESHOLD = 4000
+
+THRESHOLD = 550
 
 fig = plt.figure(11)
 ax = fig.gca()
 plt.title("Hot Pixels")
 hot_pixel_image = mean_dark50_image
 pos_hot_pixel = np.where(hot_pixel_image > THRESHOLD)
-print("Number of dead pixels: ", len(pos_hot_pixel[0]))
-print("Dead pixel positions: ", pos_hot_pixel)
+print("Number of hot pixels: ", len(pos_hot_pixel[0]))
+print("Hot pixel positions: ", pos_hot_pixel)
 #hot_pixel_image[hot_pixel_image > THRESHOLD] = 0
 #hot_pixel_image[hot_pixel_image < THRESHOLD] = 255
 plt.imshow(hot_pixel_image, cmap=plt.get_cmap("Greys"))
 for y,x in zip(*pos_hot_pixel):
-    ax.add_patch(Circle((x,y),5))
-"""
+    ax.add_patch(Circle((x,y),5, color="r"))
+
 
 """FLAT-FIELDING"""
 dark_ff = read_dir("flat_fielding/dsnu")
@@ -479,5 +501,5 @@ plt.imshow(corrected_image, cmap=plt.get_cmap("Greys"))
 
 
 
-
+print("done")
 plt.show()
