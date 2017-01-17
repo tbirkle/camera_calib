@@ -51,7 +51,7 @@ def read_dir(path):
         if (filename.split(".")[1] == "png"):
             img = scipy.misc.imread(os.path.join(path, filename))
             img = np.asarray((img / 2**16) * 2**BIT, dtype=np.uint16)
-            img_rgb = cv2.cvtColor(img, cv2.COLOR_BayerRG2RGB)
+            img_rgb = cv2.cvtColor(img, cv2.COLOR_BayerBG2RGB)
             img = img_rgb[:,:,1] # green
             images.append(img)
 
@@ -64,24 +64,14 @@ def read_dir(path):
 flat_images = read_dir("flat")
 dark_images = read_dir("dark")
 
-print(flat_images.shape)
-print(np.mean(flat_images, axis=(1,2)))
-
 test = np.mean(flat_images, axis=(1,2))
-print(test.shape)
 
 mean_flat = averageEvery2(np.mean(flat_images, axis=(1,2)))
 mean_dark = averageEvery2(np.mean(dark_images, axis=(1,2)))
 
-
-print(mean_flat.shape)
-
-
-print(mean_flat)
-print(mean_dark)
-
 var_flat = temporal_variance(flat_images)
 var_dark = temporal_variance(dark_images)
+
 
 exposure_times = np.linspace(0.02, 20, 15) / 1000#np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10 , 11, 12, 13, 14, 15])
 print("exposure times",exposure_times)
@@ -100,9 +90,6 @@ saturation_start = mean_without_noise[saturation_idx] * 0.7
 
 regression_x = mean_without_noise[mean_without_noise < saturation_start]
 regression_y = var_without_noise[:len(regression_x)]
-
-print(regression_x)
-print(regression_y)
 
 regression = stats.linregress(regression_x, regression_y)
 
@@ -147,6 +134,7 @@ if var_dark_temp < 0.24: # temporal noise is dominated by the quantization noise
     var_dark_temp = 0.49
 
 var_dark_noise = (var_dark_temp - QUANTISATION_ERROR) / K**2
+
 
 print("Variance Dark Noise: ", var_dark_noise, "e")
 print("Std Dark Noise: ", np.sqrt(var_dark_noise), "e")
@@ -325,62 +313,13 @@ lowpass = scipy.ndimage.uniform_filter(mean_flat50_image - mean_dark50_image, 5,
 
 highpass = mean_flat50_image - mean_dark50_image - lowpass
 
-#highpass_hist
-"""
-highpass_var = highpass.var()
-total_var = highpass_var + temporal_variance_flat50_stack
-
-
-mean_highpass = highpass.mean()
-
-left = stats.norm.ppf(0.01, mean_highpass, highpass_var)
-right = stats.norm.ppf(0.99, mean_highpass, highpass_var)
-
-x = np.linspace(left, right, 100)
-fit = stats.norm.pdf(x, mean_highpass, total_var)
-
-mean_flat50_min = mean_flat50_image.min()
-mean_flat50_max = mean_flat50_image.max()
-L = len(flat50)
-print("L: ", L)
-
-interval = np.floor((L * (mean_flat50_max - mean_flat50_min))/256) + 1
-print("Interval: ", interval)
-Q = np.floor((L * (mean_flat50_max - mean_flat50_min)) / interval) + 1
-print("Q: ", Q)
-
-highpass_hist = np.histogram(highpass.flatten(), bins=Q, density=True, range=(highpass.min(), highpass.max()))
-print("min", mean_flat50_min, mean_flat50_image.mean(), mean_flat50_image.max()) #(highpass_hist[0]* (1/L))
-print(np.asarray([x for x in range(0,len(highpass_hist[0]))]))
-center_bins = mean_flat50_min + ((interval - 1) / (2*L)) + (np.asarray([x for x in range(0,len(highpass_hist[0]))])* (interval/L))
-print(center_bins.shape, center_bins)
-
-
-print("size", mean_flat50_image.size )
-
-print("asdf", (mean_flat50_image.size / np.sqrt(2*np.pi) * std_dark50_stack))
-print("asdf", temporal_variance_dark50_stack)
-print("asdfadvas", np.exp(-1 * (center_bins**2) / (2*temporal_variance_dark50_stack)))
-
-print("E INNEN", -1 * ((center_bins**2) / (2*temporal_variance_dark50_stack)))
-
-print(std_dark50_stack, temporal_variance_dark50_stack,  (interval/L))
-pdf = (interval/L) * (mean_flat50_image.size / np.sqrt(2*np.pi) * std_dark50_stack)\
-      * np.exp(-1 * ((center_bins**2) / (2*temporal_variance_dark50_stack)))
-
-print("pdf", pdf.shape, pdf)
-"""
 
 plt.figure(8)
 plt.title("histogram PRNU")
 plt.yscale("log")
 plt.ylim(ymin=10**(-1), ymax=10**5)
 
-#histo = np.histogram(highpass.flatten(), bins=Q, range=(highpass.min(), highpass.max()))
 plt.hist(highpass.flatten(), bins=2**BIT)
-#print("histo[1]", histo[1].shape, histo[0].shape)
-#plt.bar(histo[1][:-1], histo[0])
-#plt.plot(highpass_hist[0] * histo[0].max())
 
 
 THRESHOLD = -100
@@ -391,8 +330,7 @@ dead_pixel_image = highpass
 pos_dead_pixel = np.where(dead_pixel_image < THRESHOLD)
 print("Number of dead pixels: ", len(pos_dead_pixel[0]))
 print("Dead pixel positions: ", pos_dead_pixel)
-#dead_pixel_image[dead_pixel_image > THRESHOLD] = 255
-#dead_pixel_image[dead_pixel_image < THRESHOLD] = 0
+
 ax.imshow(dead_pixel_image, cmap=plt.get_cmap("Greys"))
 for y,x in zip(*pos_dead_pixel):
     ax.add_patch(Circle((x,y),5,color="r"))
@@ -414,8 +352,7 @@ hot_pixel_image = mean_dark50_image
 pos_hot_pixel = np.where(hot_pixel_image > THRESHOLD)
 print("Number of hot pixels: ", len(pos_hot_pixel[0]))
 print("Hot pixel positions: ", pos_hot_pixel)
-#hot_pixel_image[hot_pixel_image > THRESHOLD] = 0
-#hot_pixel_image[hot_pixel_image < THRESHOLD] = 255
+
 plt.imshow(hot_pixel_image, cmap=plt.get_cmap("Greys"))
 for y,x in zip(*pos_hot_pixel):
     ax.add_patch(Circle((x,y),5, color="r"))
