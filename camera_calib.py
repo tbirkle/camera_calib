@@ -214,7 +214,6 @@ plt.legend(handles=[ideal, theo, real], loc='upper left')
 DR = 20*np.log10((sat_photons/photons_min))
 print("Dynamikbereich: ", DR)
 
-#plt.show()
 
 
 """Ende Aufgabe 2"""
@@ -246,7 +245,7 @@ temporal_variance_dark50_image = (1/(len(dark50)-1)) * np.sum((dark50 - mean_dar
 temporal_variance_dark50_stack = np.mean(temporal_variance_dark50_image)
 std_dark50_stack = np.sqrt(temporal_variance_dark50_stack)
 
-DSNU = np.sqrt(variance_dark50) / K
+DSNU = np.sqrt((variance_dark50-temporal_variance_dark50_stack)/len(dark50)) / K
 PRNU = np.sqrt(variance_flat50 - variance_dark50) / (mean_flat50 - mean_dark50)
 
 print("DSNU: ", DSNU, "e")
@@ -263,7 +262,7 @@ mean_flat50_image_diff = mean_flat50_image - mean_flat50
 mean_dark50_image_diff = mean_dark50_image - mean_dark50
 
 """Spektrogramm PRNU Horizontal"""
-flat_fft_hor = (1/np.sqrt(mean_flat50_image_diff.size)) * np.fft.fft(mean_flat50_image_diff, axis=1)
+flat_fft_hor = (1/np.sqrt(mean_flat50_image_diff.shape[1])) * np.fft.fft(mean_flat50_image_diff, axis=1) # TODO size oder spaltengröße
 p_flat_hor = power_spectrum(flat_fft_hor, axis=1)
 
 plt.figure(4)
@@ -279,8 +278,9 @@ plt.legend(loc="upper left")
 #plt.plot(range(len(p)//2), p[:len(p)//2])
 """Spektrogramm PRNU Vertikal"""
 
-flat_fft_vert = (1/np.sqrt(mean_flat50_image_diff.size)) * np.fft.fft(mean_flat50_image_diff, axis=0)
+flat_fft_vert = (1/np.sqrt(mean_flat50_image_diff.shape[0])) * np.fft.fft(mean_flat50_image_diff, axis=0)
 p_flat_vert = power_spectrum(flat_fft_vert, axis=0)
+
 plt.figure(5)
 plt.title("Spektrogramm PRNU Vertikal")
 plt.ylabel("standard deviation(%)")
@@ -292,7 +292,7 @@ plt.plot([0, len(p_flat_vert)//2],[PRNU,PRNU], "r--", label="spat.std {:.2f} DN"
 plt.legend(loc="upper left")
 
 """Spektrogramm DSNU Horizontal"""
-dark_fft_hor = (1/np.sqrt(mean_dark50_image_diff.size)) * np.fft.fft(mean_dark50_image_diff, axis=1)
+dark_fft_hor = (1/np.sqrt(mean_dark50_image_diff.shape[1])) * np.fft.fft(mean_dark50_image_diff, axis=1)
 p_dark_hor = power_spectrum(dark_fft_hor, axis=1)
 plt.figure(6)
 plt.title("Spektrogramm DSNU Horizontal")
@@ -305,7 +305,7 @@ plt.plot([0, len(p_dark_hor)//2],[DSNU*K,DSNU*K], "r--", label="spat.std {:.2f} 
 plt.legend(loc="upper left")
 
 """Spektrogramm DSNU Vertikal"""
-dark_fft_vert = (1/np.sqrt(mean_dark50_image_diff.size)) * np.fft.fft(mean_dark50_image_diff, axis=0)
+dark_fft_vert = (1/np.sqrt(mean_dark50_image_diff.shape[0])) * np.fft.fft(mean_dark50_image_diff, axis=0)
 p_dark_vert = power_spectrum(dark_fft_vert, axis=0)
 plt.figure(7)
 plt.title("Spektrogramm DSNU Vertikal")
