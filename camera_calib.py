@@ -179,6 +179,7 @@ sat_photons = photons[len(mean_without_noise[mean_without_noise < saturation_sta
 
 photons_min = (1/QE) *((np.sqrt(var_dark[0])/K)+0.5) #Wie berechnet man var_dark ? Welche Bilder (Belichtungszeiten)?
 
+print("Kleinste nutzbare Bestrahlungsmenge: ", photons_min)
 
 plt.figure(3)
 plt.title("SNR")
