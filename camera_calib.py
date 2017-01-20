@@ -21,6 +21,13 @@ QUANTISATION_ERROR = 1/12
 BIT = 12
 
 
+
+
+
+
+
+
+
 def number_photons(exposure_times):
     return CONSTANT * PIXEL_SIZE * E * exposure_times * WAVELENGTH
 
@@ -41,18 +48,28 @@ def power_spectrum(fft, axis=0):
     return np.sqrt((1 / fft.shape[~axis]) * np.sum((fft * np.conj(fft)), axis=~axis))
 
 def flat_fielding(mean_flat50_image, mean_dark50_image, test_image):
-    return np.mean(mean_flat50_image) * ((test_image - mean_dark50_image)/(mean_flat50_image-mean_dark50_image))
+    #denom = np.abs(test_image - mean_dark50_image)
+    #print(denom.min())
+
+    #nom = np.abs(mean_flat50_image - mean_dark50_image)
+    #print(nom.min())
+
+    #return (denom/nom)*np.mean(mean_flat50_image)
+    return ((test_image - mean_dark50_image)/(mean_flat50_image-mean_dark50_image)) * np.mean(mean_flat50_image)
 
 
-def read_dir(path):
+def read_dir(path, bit=12, rgb=False):
     flat = sorted(os.listdir(path))
     images = []
     for filename in flat:
         if (filename.split(".")[1] == "png"):
             img = scipy.misc.imread(os.path.join(path, filename))
-            img = np.asarray((img / 2**16) * 2**BIT, dtype=np.uint16)
+            img = np.asarray((img / 2**16) * 2**bit, dtype=np.uint16)
             img_rgb = cv2.cvtColor(img, cv2.COLOR_BayerBG2RGB)
-            img = img_rgb[:,:,1] # green
+            if rgb:
+                img = img_rgb
+            else:
+                img = img_rgb[:, :, 1]
             images.append(img)
 
     images = np.asarray(images)
@@ -61,10 +78,15 @@ def read_dir(path):
 
 
 
+
+
+
+
+
 flat_images = read_dir("flat")
 dark_images = read_dir("dark")
 
-test = np.mean(flat_images, axis=(1,2))
+
 
 mean_flat = averageEvery2(np.mean(flat_images, axis=(1,2)))
 mean_dark = averageEvery2(np.mean(dark_images, axis=(1,2)))
@@ -145,20 +167,22 @@ plt.figure(1)
 plt.title("Photon-Transfer-Curve")
 plt.ylabel(r'variance gray value  $\sigma_{y} - \sigma_{y.dark}$  $(DN^2)$')
 plt.xlabel(r'gray value - dark value  $\mu_{y} - \mu_{y.dark}$  $(DN)$')
-plt.text(50, 0.1, r'$\sigma^2_{{y.dark}}={:.2f} DN^2, K={:.3f} \pm{:.3f}\%$'.format(var_dark_noise, K, K_error))
+plt.text(50, 1300, r'$\sigma^2_{{y.dark}}={:.2f} DN^2, K={:.3f} \pm{:.3f}\%$'.format(var_dark_noise, K, K_error))
 plt.plot([0,saturation_start],[K_offset,K_offset+K*saturation_start], "r--", label="fit")
 plt.plot(mean_without_noise, var_without_noise, "k+", label="data")
 plt.plot([mean_without_noise[saturation_idx], mean_without_noise[saturation_idx]],[var_without_noise[saturation_idx],0],"b--", label="sensitivity threshold" )
 plt.legend(loc="upper left")
+plt.savefig("results/ptc.png")
 
 plt.figure(2)
 plt.title("Sensitivity")
 plt.xlabel(r'irradiation (photons/pixel)')
 plt.ylabel(r'gray value - dark value  $\mu_{y} - \mu_{y.dark}$  $(DN)$')
-plt.text(1, 100, r"$\mu_{{y.dark}}={:.2f} DN$".format(mean_dark[0]))
+plt.text(2, 3000, r"$\mu_{{y.dark}}={:.2f} DN$".format(mean_dark[0]))
 plt.plot(photons, mean_without_noise, "k+", label="data")
 plt.plot([0,reg_x[len(reg_x)-1]],[R_offset, R_offset+R*reg_x[len(reg_x)-1]], "r--", label="fit")
 plt.legend(loc="upper left")
+plt.savefig("results/sensitivity.png")
 
 
 
@@ -193,7 +217,8 @@ real, = plt.plot(photons, SNR_each_pic,"bx", label="reale SNR")
 #plt.plot[[sat_photons,0],[sat_photons,10**10]]
 plt.plot([sat_photons, sat_photons],[0, SNR_ideal.max()+100], "--")
 plt.plot([photons_min, photons_min],[0, SNR_ideal.max()+100], "--")
-plt.plot()
+#plt.plot()
+plt.savefig("results/SNR.png")
 
 plt.legend(handles=[ideal, theo, real], loc='upper left')
 
@@ -263,6 +288,7 @@ plt.plot(p_flat_hor[:len(p_flat_hor)//2])
 plt.plot([0, len(p_flat_hor)//2],[std_flat50_stack,std_flat50_stack], "g--", label="temp.std {:.2f} DN".format(std_flat50_stack))
 plt.plot([0, len(p_flat_hor)//2],[PRNU,PRNU], "r--", label="spat.std {:.2f} DN".format(PRNU))
 plt.legend(loc="upper left")
+plt.savefig("results/PRNU_hor.png")
 
 #plt.plot(range(len(p)//2), p[:len(p)//2])
 """Spektrogramm PRNU Vertikal"""
@@ -279,6 +305,7 @@ plt.plot(p_flat_vert[:len(p_flat_vert)//2])
 plt.plot([0, len(p_flat_vert)//2],[std_flat50_stack,std_flat50_stack], "g--", label="temp.std {:.2f} DN".format(std_flat50_stack))
 plt.plot([0, len(p_flat_vert)//2],[PRNU,PRNU], "r--", label="spat.std {:.2f} DN".format(PRNU))
 plt.legend(loc="upper left")
+plt.savefig("results/PRNU_ver.png")
 
 """Spektrogramm DSNU Horizontal"""
 dark_fft_hor = (1/np.sqrt(mean_dark50_image_diff.shape[1])) * np.fft.fft(mean_dark50_image_diff, axis=1)
@@ -292,6 +319,7 @@ plt.plot(p_dark_hor[:len(p_dark_hor)//2])
 plt.plot([0, len(p_dark_hor)//2],[std_dark50_stack,std_dark50_stack], "g--", label="temp.std {:.2f} DN".format(std_dark50_stack))
 plt.plot([0, len(p_dark_hor)//2],[DSNU*K,DSNU*K], "r--", label="spat.std {:.2f} DN".format(DSNU*K))
 plt.legend(loc="upper left")
+plt.savefig("results/DSNU_hor.png")
 
 """Spektrogramm DSNU Vertikal"""
 dark_fft_vert = (1/np.sqrt(mean_dark50_image_diff.shape[0])) * np.fft.fft(mean_dark50_image_diff, axis=0)
@@ -305,6 +333,7 @@ plt.plot(p_dark_vert[:len(p_dark_vert)//2])
 plt.plot([0, len(p_dark_vert)//2],[std_dark50_stack,std_dark50_stack], "g--", label="temp.std {:.2f} DN".format(std_dark50_stack))
 plt.plot([0, len(p_dark_vert)//2],[DSNU*K,DSNU*K], "r--", label="spat.std {:.2f} DN".format(DSNU*K))
 plt.legend(loc="upper left")
+plt.savefig("results/DSNU_ver.png")
 
 """ENDE AUFGABE3"""
 
@@ -321,9 +350,11 @@ plt.yscale("log")
 plt.ylim(ymin=10**(-1), ymax=10**5)
 
 plt.hist(highpass.flatten(), bins=2**BIT)
+plt.savefig("results/prnu_hist.png")
 
 
-THRESHOLD = -100
+
+THRESHOLD = -90
 fig = plt.figure(9)
 ax = fig.gca()
 plt.title("Dead Pixels")
@@ -336,6 +367,8 @@ ax.imshow(dead_pixel_image, cmap=plt.get_cmap("Greys"))
 for y,x in zip(*pos_dead_pixel):
     ax.add_patch(Circle((x,y),5,color="r"))
 
+plt.savefig("results/deadpixel.png")
+
 
 plt.figure(10)
 plt.title("histogram DSNU")
@@ -343,6 +376,7 @@ plt.yscale("log")
 plt.ylim(ymin=10**(-1), ymax=10**5)
 
 plt.hist(mean_dark50_image.flatten(), bins=2**BIT)
+plt.savefig("results/dsnu_hist.png")
 
 THRESHOLD = 550
 
@@ -358,31 +392,128 @@ plt.imshow(hot_pixel_image, cmap=plt.get_cmap("Greys"))
 for y,x in zip(*pos_hot_pixel):
     ax.add_patch(Circle((x,y),5, color="r"))
 
+plt.savefig("results/hotpixel.png")
+
+
+def interpolate(img, pos):
+    y = pos[0]
+    x = pos[1]
+
+    return (img[y-1, x-1] + img[y-1,x] + img[y,x-1] + img[y+1,x+1] + img[y+1,x-1] + img[y,x+1] + img[y-1,x+1] + img[y+1,x]) / 8
+
+
+def show_fixed_histograms(mean_flat50_image, mean_dark50_image, pos_hot, pos_dead):
+    #np.pad(mean_flat50_image, (1,1), mode='median')
+    mean_flat50_image = np.pad(mean_flat50_image, (0, 1), mode='median')
+    mean_dark50_image = np.pad(mean_dark50_image, (0, 1), mode='median')
+
+    for y, x in zip(*pos_hot):
+        mean_dark50_image[y, x] = interpolate(mean_dark50_image, (y, x))
+        mean_flat50_image[y, x] = interpolate(mean_flat50_image, (y, x))
+
+    for y, x in zip(*pos_dead):
+        mean_dark50_image[y, x] = interpolate(mean_dark50_image, (y, x))
+        mean_flat50_image[y, x] = interpolate(mean_flat50_image, (y, x))
+
+    mean_dark50_image = mean_dark50_image[:-1, :-1]
+    mean_flat50_image = mean_flat50_image[:-1, :-1]
+
+    lowpass = scipy.ndimage.uniform_filter(mean_flat50_image - mean_dark50_image, 5, mode="reflect")
+    highpass = mean_flat50_image - mean_dark50_image - lowpass
+
+
+    plt.figure(100)
+    plt.title("Histogram PRNU after interpolation")
+    plt.yscale("log")
+    plt.ylim(ymin=10 ** (-1), ymax=10 ** 5)
+    plt.hist(highpass.flatten(), bins=2 ** BIT)
+    plt.savefig("results/hist_prnu_interp.png")
+    THRESHOLD = -90
+    fig = plt.figure(101)
+    ax = fig.gca()
+    plt.title("Dead Pixels")
+    dead_pixel_image = highpass
+    pos_dead_pixel = np.where(dead_pixel_image < THRESHOLD)
+    print("Number of dead pixels after interpolation: ", len(pos_dead_pixel[0]))
+    print("Dead pixel positions after interpolation: ", pos_dead_pixel)
+
+    ax.imshow(dead_pixel_image, cmap=plt.get_cmap("Greys"))
+    for y, x in zip(*pos_dead_pixel):
+        ax.add_patch(Circle((x, y), 5, color="r"))
+
+    plt.figure(102)
+    plt.title("Histogram DSNU after interpolation")
+    plt.yscale("log")
+    plt.ylim(ymin=10 ** (-1), ymax=10 ** 5)
+    plt.hist(mean_dark50_image.flatten(), bins=2 ** BIT)
+    plt.savefig("results/hist_dsnu_interp.png")
+
+    THRESHOLD = 550
+
+    fig = plt.figure(103)
+    ax = fig.gca()
+    plt.title("Hot Pixels")
+    hot_pixel_image = mean_dark50_image
+    pos_hot_pixel = np.where(hot_pixel_image > THRESHOLD)
+    print("Number of hot pixels after interpolation: ", len(pos_hot_pixel[0]))
+    print("Hot pixel positions after interpolation: ", pos_hot_pixel)
+
+    plt.imshow(hot_pixel_image, cmap=plt.get_cmap("Greys"))
+    for y, x in zip(*pos_hot_pixel):
+        ax.add_patch(Circle((x, y), 5, color="r"))
+
+
+show_fixed_histograms(mean_flat50_image, mean_dark50_image, pos_hot_pixel, pos_dead_pixel)
+
 
 """FLAT-FIELDING"""
-dark_ff = read_dir("flat_fielding/dsnu")
-flat_ff = read_dir("flat_fielding/prnu")
-test_image = scipy.misc.imread(os.path.join("flat_fielding", "test.png"), mode="I")
-test_image = scipy.misc.imresize(test_image, (640,480))
+dark_ff = read_dir("flat_fielding/dsnu", bit=12, rgb=False)
+flat_ff = read_dir("flat_fielding/ffcflat", bit=12, rgb=False)
+test_image = scipy.misc.imread(os.path.join("flat_fielding", "ffc1_f2.png"))
+print(test_image.dtype)
+test_image = np.asarray((test_image / 2**16) * 2**12, dtype=np.uint16)
+rgb_img = cv2.cvtColor(test_image, cv2.COLOR_BayerBG2RGB)
+#scipy.misc.imsave("blabla.png", rgb_img)
+test_image = rgb_img[:,:,1]
+print("blub", test_image.mean())
+#test_image = test_image.astype(np.uint8)#np.asarray((test_image / 2**8) * 2**8, dtype=np.uint8)
+#scipy.misc.imsave("blabla.png", test_image)
+
 mean_dark_ff_image = np.mean(dark_ff, axis=0)
 mean_flat_ff_image = np.mean(flat_ff, axis=0)
 
-print(mean_dark_ff_image.shape, test_image.shape)
+print(mean_dark_ff_image.mean())
+
+#mean_dark_ff_image.astype(np.float64)
+#mean_flat_ff_image.astype(np.float64)
+#test_image.astype(np.float64)
+
+
+
+
 
 plt.figure(12)
 plt.subplot(221)
 plt.title("test image without correction")
-plt.imshow(test_image, cmap=plt.get_cmap("Greys"))
+#plt.hist((test_image - mean_dark_ff_image).flatten(), bins=500)#, cmap="gray")
+plt.imshow(test_image, cmap="gray") #.astype(np.uint8)
+
+plt.subplot(222)
+plt.title("dark")
+plt.imshow((test_image - mean_dark_ff_image), cmap="gray") #.astype(np.uint8)
+
+plt.subplot(223)
+plt.title("flat")
+plt.imshow((mean_flat_ff_image - mean_dark_ff_image), cmap="gray") #.astype(np.uint8)
 
 
-corrected_image = test_image
+corrected_image = flat_fielding(mean_flat_ff_image, mean_dark_ff_image, test_image)
 
-#corrected_image = flat_fielding(mean_flat_ff_image, mean_dark_ff_image, test_image)
+
 plt.subplot(224)
 plt.title("test image corrected")
-plt.imshow(corrected_image, cmap=plt.get_cmap("Greys"))
-
-
+plt.imshow(corrected_image, cmap="gray")
+plt.savefig("results/ffc.png")
 
 
 print("done")
