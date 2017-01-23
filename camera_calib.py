@@ -13,15 +13,26 @@ import skimage.io
 #50% sat = 8.58ms
 
 PIXEL_SIZE = (4.5 * 10**(-6))**2
+print("size", PIXEL_SIZE)
 E = 0.1217 #13.97 # 46.85nA / 3.352nA/lx = 13.97lx
-WAVELENGTH = 0.000000525
-CONSTANT = 5.034* 10**24
+WAVELENGTH = 525 * 10**(-9)
+
+print("wave", WAVELENGTH)
+CONSTANT = 5.034* (10**24)
 QUANTISATION_ERROR = 1/12
 
 BIT = 12
 
+I = 0.8 #mA
+AperW = 0.3069
+E = ((10**(-6)*I)/0.0001) / AperW
+#((46.85*10**(-9)) / 0.3069) / 0.00001#(0.196*(10**(-6))) #0.0001
+print("E", E)
 
 
+
+
+#print((0.196*(10**(-6))))
 
 
 
@@ -165,8 +176,8 @@ print("Std Dark Noise: ", np.sqrt(var_dark_noise), "e")
 
 plt.figure(1)
 plt.title("Photon-Transfer-Curve")
-plt.ylabel(r'variance gray value  $\sigma_{y} - \sigma_{y.dark}$  $(DN^2)$')
-plt.xlabel(r'gray value - dark value  $\mu_{y} - \mu_{y.dark}$  $(DN)$')
+plt.ylabel(r'Variance gray value  $\sigma_{y}^2 - \sigma_{y.dark}^2$  $(DN^2)$')
+plt.xlabel(r'Gray value - dark value  $\mu_{y} - \mu_{y.dark}$  $(DN)$')
 plt.text(50, 1300, r'$\sigma^2_{{y.dark}}={:.2f} DN^2, K={:.3f} \pm{:.3f}\%$'.format(var_dark_noise, K, K_error))
 plt.plot([0,saturation_start],[K_offset,K_offset+K*saturation_start], "r--", label="fit")
 plt.plot(mean_without_noise, var_without_noise, "k+", label="data")
@@ -176,8 +187,8 @@ plt.savefig("results/ptc.png")
 
 plt.figure(2)
 plt.title("Sensitivity")
-plt.xlabel(r'irradiation (photons/pixel)')
-plt.ylabel(r'gray value - dark value  $\mu_{y} - \mu_{y.dark}$  $(DN)$')
+plt.xlabel(r'Irradiation (photons/pixel)')
+plt.ylabel(r'Gray value - dark value  $\mu_{y} - \mu_{y.dark}$  $(DN)$')
 plt.text(2, 3000, r"$\mu_{{y.dark}}={:.2f} DN$".format(mean_dark[0]))
 plt.plot(photons, mean_without_noise, "k+", label="data")
 plt.plot([0,reg_x[len(reg_x)-1]],[R_offset, R_offset+R*reg_x[len(reg_x)-1]], "r--", label="fit")
@@ -195,13 +206,13 @@ plt.savefig("results/sensitivity.png")
 """Signal to Noise ratio"""
 SNR_each_pic = (mean_without_noise)/np.sqrt(var_flat)  #SNR für jede Belichtungszeit
 
-SNR_theor = (QE*photons)/np.sqrt(var_dark+(1/12/K**2)+QE*photons) #SNR aus den zuvor ermittelten Werten
+SNR_theor = (QE*photons)/np.sqrt(var_dark_noise+(1/12/K**2)+QE*photons) #SNR aus den zuvor ermittelten Werten
 
 SNR_ideal = np.sqrt(photons) #SNR von idealem Sensor
 
 sat_photons = photons[len(mean_without_noise[mean_without_noise < saturation_start])-1]
 
-photons_min = (1/QE) *((np.sqrt(var_dark[0])/K)+0.5) #Wie berechnet man var_dark ? Welche Bilder (Belichtungszeiten)?
+photons_min = (1/QE) *((np.sqrt(var_dark.mean())/K)+0.5) #Wie berechnet man var_dark ? Welche Bilder (Belichtungszeiten)?
 
 print("Kleinste nutzbare Bestrahlungsmenge: ", photons_min)
 
@@ -214,6 +225,8 @@ plt.xscale("log")
 ideal, = plt.plot(photons, SNR_ideal,"r",label="ideale SNR")
 theo, = plt.plot(photons, SNR_theor,"g", label="theoretische SNR")
 real, = plt.plot(photons, SNR_each_pic,"bx", label="reale SNR")
+plt.xlabel('Irradiation (photons/pixel)')
+plt.ylabel('SNR')
 #plt.plot[[sat_photons,0],[sat_photons,10**10]]
 plt.plot([sat_photons, sat_photons],[0, SNR_ideal.max()+100], "--")
 plt.plot([photons_min, photons_min],[0, SNR_ideal.max()+100], "--")
@@ -274,6 +287,12 @@ print("PRNU: ", PRNU, "%")
 # mean_flat50_image =  mean_flat50_image - mean_flat50
 mean_flat50_image_diff = mean_flat50_image - mean_flat50
 mean_dark50_image_diff = mean_dark50_image - mean_dark50
+#plt.figure(200)
+#plt.imshow(mean_flat50_image_diff, cmap='gray')
+#plt.figure(201)
+#plt.imshow(mean_dark50_image_diff, cmap='gray')
+
+#plt.show()
 
 """Spektrogramm PRNU Horizontal"""
 flat_fft_hor = (1/np.sqrt(mean_flat50_image_diff.shape[1])) * np.fft.fft(mean_flat50_image_diff, axis=1) # TODO size oder spaltengröße
@@ -281,10 +300,10 @@ p_flat_hor = power_spectrum(flat_fft_hor, axis=1)
 
 plt.figure(4)
 plt.title("Spektrogramm PRNU Horizontal")
-plt.ylabel("standard deviation(%)")
-plt.xlabel("frequency (cycles/pixel)")
+plt.ylabel("Standard deviation(%)")
+plt.xlabel("Frequency (cycles/pixel)")
 plt.yscale("log")
-plt.plot(p_flat_hor[:len(p_flat_hor)//2])
+plt.plot(p_flat_hor.real[:len(p_flat_hor)//2])
 plt.plot([0, len(p_flat_hor)//2],[std_flat50_stack,std_flat50_stack], "g--", label="temp.std {:.2f} DN".format(std_flat50_stack))
 plt.plot([0, len(p_flat_hor)//2],[PRNU,PRNU], "r--", label="spat.std {:.2f} DN".format(PRNU))
 plt.legend(loc="upper left")
@@ -298,10 +317,10 @@ p_flat_vert = power_spectrum(flat_fft_vert, axis=0)
 
 plt.figure(5)
 plt.title("Spektrogramm PRNU Vertikal")
-plt.ylabel("standard deviation(%)")
-plt.xlabel("frequency (cycles/pixel)")
+plt.ylabel("Standard deviation(%)")
+plt.xlabel("Frequency (cycles/pixel)")
 plt.yscale("log")
-plt.plot(p_flat_vert[:len(p_flat_vert)//2])
+plt.plot(p_flat_vert.real[:len(p_flat_vert)//2])
 plt.plot([0, len(p_flat_vert)//2],[std_flat50_stack,std_flat50_stack], "g--", label="temp.std {:.2f} DN".format(std_flat50_stack))
 plt.plot([0, len(p_flat_vert)//2],[PRNU,PRNU], "r--", label="spat.std {:.2f} DN".format(PRNU))
 plt.legend(loc="upper left")
@@ -312,10 +331,10 @@ dark_fft_hor = (1/np.sqrt(mean_dark50_image_diff.shape[1])) * np.fft.fft(mean_da
 p_dark_hor = power_spectrum(dark_fft_hor, axis=1)
 plt.figure(6)
 plt.title("Spektrogramm DSNU Horizontal")
-plt.ylabel("standard deviation(DN)")
-plt.xlabel("frequency (cycles/pixel)")
+plt.ylabel("Standard deviation(DN)")
+plt.xlabel("Frequency (cycles/pixel)")
 plt.yscale("log")
-plt.plot(p_dark_hor[:len(p_dark_hor)//2])
+plt.plot(p_dark_hor.real[:len(p_dark_hor)//2])
 plt.plot([0, len(p_dark_hor)//2],[std_dark50_stack,std_dark50_stack], "g--", label="temp.std {:.2f} DN".format(std_dark50_stack))
 plt.plot([0, len(p_dark_hor)//2],[DSNU*K,DSNU*K], "r--", label="spat.std {:.2f} DN".format(DSNU*K))
 plt.legend(loc="upper left")
@@ -326,10 +345,10 @@ dark_fft_vert = (1/np.sqrt(mean_dark50_image_diff.shape[0])) * np.fft.fft(mean_d
 p_dark_vert = power_spectrum(dark_fft_vert, axis=0)
 plt.figure(7)
 plt.title("Spektrogramm DSNU Vertikal")
-plt.ylabel("standard deviation(DN)")
-plt.xlabel("frequency (cycles/pixel)")
+plt.ylabel("Standard deviation(DN)")
+plt.xlabel("Frequency (cycles/pixel)")
 plt.yscale("log")
-plt.plot(p_dark_vert[:len(p_dark_vert)//2])
+plt.plot(p_dark_vert.real[:len(p_dark_vert)//2])
 plt.plot([0, len(p_dark_vert)//2],[std_dark50_stack,std_dark50_stack], "g--", label="temp.std {:.2f} DN".format(std_dark50_stack))
 plt.plot([0, len(p_dark_vert)//2],[DSNU*K,DSNU*K], "r--", label="spat.std {:.2f} DN".format(DSNU*K))
 plt.legend(loc="upper left")
@@ -345,10 +364,11 @@ highpass = mean_flat50_image - mean_dark50_image - lowpass
 
 
 plt.figure(8)
-plt.title("histogram PRNU")
+plt.title("Histogram PRNU")
 plt.yscale("log")
 plt.ylim(ymin=10**(-1), ymax=10**5)
-
+plt.ylabel("Number of pixels/bin")
+plt.xlabel("Deviation from mean(%)")
 plt.hist(highpass.flatten(), bins=2**BIT)
 plt.savefig("results/prnu_hist.png")
 
@@ -371,10 +391,11 @@ plt.savefig("results/deadpixel.png")
 
 
 plt.figure(10)
-plt.title("histogram DSNU")
+plt.title("Histogram DSNU")
 plt.yscale("log")
 plt.ylim(ymin=10**(-1), ymax=10**5)
-
+plt.ylabel("Number of pixels/bin")
+plt.xlabel("Deviation from mean(DN)")
 plt.hist(mean_dark50_image.flatten(), bins=2**BIT)
 plt.savefig("results/dsnu_hist.png")
 
@@ -409,10 +430,10 @@ def show_fixed_histograms(mean_flat50_image, mean_dark50_image, pos_hot, pos_dea
 
     for y, x in zip(*pos_hot):
         mean_dark50_image[y, x] = interpolate(mean_dark50_image, (y, x))
-        mean_flat50_image[y, x] = interpolate(mean_flat50_image, (y, x))
+        #mean_flat50_image[y, x] = interpolate(mean_flat50_image, (y, x))
 
     for y, x in zip(*pos_dead):
-        mean_dark50_image[y, x] = interpolate(mean_dark50_image, (y, x))
+        #mean_dark50_image[y, x] = interpolate(mean_dark50_image, (y, x))
         mean_flat50_image[y, x] = interpolate(mean_flat50_image, (y, x))
 
     mean_dark50_image = mean_dark50_image[:-1, :-1]
