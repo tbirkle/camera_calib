@@ -23,7 +23,7 @@ QUANTISATION_ERROR = 1/12
 
 BIT = 12
 
-I = 0.8 #mA
+I = 1.5#0.8 #mA
 AperW = 0.3069
 E = ((10**(-6)*I)/0.0001) / AperW
 #((46.85*10**(-9)) / 0.3069) / 0.00001#(0.196*(10**(-6))) #0.0001
@@ -34,7 +34,44 @@ print("E", E)
 
 #print((0.196*(10**(-6))))
 
+"""
+img = scipy.misc.imread("/Users/TB/Documents/Optische Systeme/camera_calib/Datei_001.jpeg")
+img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+print(img.shape)
+test = img[img < 45]
+print("001", (len(test)))
 
+
+img[img < 45] = 255
+plt.imshow(img, cmap='gray')
+
+
+
+
+img = scipy.misc.imread("/Users/TB/Documents/Optische Systeme/camera_calib/Datei_000.jpeg")
+img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+
+print(img.shape)
+print("000", len(img[img < 35]))
+
+
+img[img < 35] = 255
+plt.imshow(img, cmap='gray')
+"""
+
+#exit()
+"""
+img = scipy.misc.imread("/Users/TB/Documents/Optische Systeme/camera_calib/MTF/MTF_F2/MTF_F2_raw/2.png")
+#img = scipy.misc.imread("flat/flat_27.png")
+img = np.asarray((img / 2**16) * 2**12, dtype=np.uint16)
+img_rgb = cv2.cvtColor(img, cv2.COLOR_BayerBG2RGB)
+
+#img = img_rgb[:, :, 1]
+scipy.misc.imsave("results/rgb.png", img_rgb)
+scipy.misc.imsave("results/0green.png", img_rgb[:, :, 1])
+scipy.misc.imsave("results/0red.png", img_rgb[:, :, 0])
+scipy.misc.imsave("results/0blue.png", img_rgb[:, :, 2])
+"""
 
 
 
@@ -66,9 +103,9 @@ def flat_fielding(mean_flat50_image, mean_dark50_image, test_image):
     #print(nom.min())
 
     #return (denom/nom)*np.mean(mean_flat50_image)
-    return ((test_image - mean_dark50_image)/(mean_flat50_image-mean_dark50_image)) * np.mean(mean_flat50_image)
+    return ((test_image - mean_dark50_image)/(mean_flat50_image-mean_dark50_image)) * np.mean(mean_flat50_image-mean_dark50_image)
 
-
+all
 def read_dir(path, bit=12, rgb=False):
     flat = sorted(os.listdir(path))
     images = []
@@ -81,6 +118,9 @@ def read_dir(path, bit=12, rgb=False):
                 img = img_rgb
             else:
                 img = img_rgb[:, :, 1]
+
+
+
             images.append(img)
 
     images = np.asarray(images)
@@ -385,7 +425,7 @@ print("Dead pixel positions: ", pos_dead_pixel)
 
 ax.imshow(dead_pixel_image, cmap=plt.get_cmap("Greys"))
 for y,x in zip(*pos_dead_pixel):
-    ax.add_patch(Circle((x,y),5,color="r"))
+    ax.add_patch(Circle((x,y),5,color="r", fill=False))
 
 plt.savefig("results/deadpixel.png")
 
@@ -411,7 +451,7 @@ print("Hot pixel positions: ", pos_hot_pixel)
 
 plt.imshow(hot_pixel_image, cmap=plt.get_cmap("Greys"))
 for y,x in zip(*pos_hot_pixel):
-    ax.add_patch(Circle((x,y),5, color="r"))
+    ax.add_patch(Circle((x,y),5, color="r", fill=False))
 
 plt.savefig("results/hotpixel.png")
 
@@ -419,22 +459,52 @@ plt.savefig("results/hotpixel.png")
 def interpolate(img, pos):
     y = pos[0]
     x = pos[1]
+    median_list = []
+    median_list.append(img[y - 1, x - 1])
+    median_list.append(img[y - 1, x])
+    median_list.append(img[y, x - 1])
+    median_list.append(img[y + 1, x + 1])
+    median_list.append(img[y + 1, x - 1])
+    median_list.append(img[y, x + 1])
+    median_list.append(img[y - 1, x + 1])
+    median_list.append(img[y + 1, x])
+    median_list = sorted(median_list)
 
-    return (img[y-1, x-1] + img[y-1,x] + img[y,x-1] + img[y+1,x+1] + img[y+1,x-1] + img[y,x+1] + img[y-1,x+1] + img[y+1,x]) / 8
+    return median_list[len(median_list)//2]#(img[y-1, x-1] + img[y-1,x] + img[y,x-1] + img[y+1,x+1] + img[y+1,x-1] + img[y,x+1] + img[y-1,x+1] + img[y+1,x]) / 8
 
 
 def show_fixed_histograms(mean_flat50_image, mean_dark50_image, pos_hot, pos_dead):
     #np.pad(mean_flat50_image, (1,1), mode='median')
+    """
+    all_y = pos_hot[0]
+    all_y = np.append(all_y, pos_dead[0])
+
+    all_x = pos_hot[1]
+    all_x = np.append(all_x, pos_dead[1])
+
+    _, idx = np.unique(all_y, return_index=True)
+    all_y = all_y[np.sort(idx)]
+
+    _, idx = np.unique(all_x, return_index=True)
+    all_x = all_x[np.sort(idx)]
+
+    all = (all_y, all_x)
+    #all_unique = (np.unique(all_y), np.unique(all_x))
+
+    print(all)
+    """
     mean_flat50_image = np.pad(mean_flat50_image, (0, 1), mode='median')
     mean_dark50_image = np.pad(mean_dark50_image, (0, 1), mode='median')
 
     for y, x in zip(*pos_hot):
         mean_dark50_image[y, x] = interpolate(mean_dark50_image, (y, x))
-        #mean_flat50_image[y, x] = interpolate(mean_flat50_image, (y, x))
-
-    for y, x in zip(*pos_dead):
-        #mean_dark50_image[y, x] = interpolate(mean_dark50_image, (y, x))
         mean_flat50_image[y, x] = interpolate(mean_flat50_image, (y, x))
+
+    #for y, x in zip(*pos_hot):
+    #    mean_dark50_image[y, x] = interpolate(mean_dark50_image, (y, x))
+    #    mean_flat50_image[y, x] = interpolate(mean_flat50_image, (y, x))
+
+
 
     mean_dark50_image = mean_dark50_image[:-1, :-1]
     mean_flat50_image = mean_flat50_image[:-1, :-1]
@@ -460,7 +530,7 @@ def show_fixed_histograms(mean_flat50_image, mean_dark50_image, pos_hot, pos_dea
 
     ax.imshow(dead_pixel_image, cmap=plt.get_cmap("Greys"))
     for y, x in zip(*pos_dead_pixel):
-        ax.add_patch(Circle((x, y), 5, color="r"))
+        ax.add_patch(Circle((x, y), 5, color="r", fill=False))
 
     plt.figure(102)
     plt.title("Histogram DSNU after interpolation")
@@ -481,7 +551,7 @@ def show_fixed_histograms(mean_flat50_image, mean_dark50_image, pos_hot, pos_dea
 
     plt.imshow(hot_pixel_image, cmap=plt.get_cmap("Greys"))
     for y, x in zip(*pos_hot_pixel):
-        ax.add_patch(Circle((x, y), 5, color="r"))
+        ax.add_patch(Circle((x, y), 5, color="r", fill=False))
 
 
 show_fixed_histograms(mean_flat50_image, mean_dark50_image, pos_hot_pixel, pos_dead_pixel)
@@ -520,12 +590,12 @@ plt.title("test image without correction")
 plt.imshow(test_image, cmap="gray") #.astype(np.uint8)
 
 plt.subplot(222)
-plt.title("dark")
+plt.title("test image - dark")
 plt.imshow((test_image - mean_dark_ff_image), cmap="gray") #.astype(np.uint8)
 
 plt.subplot(223)
 plt.title("flat")
-plt.imshow((mean_flat_ff_image - mean_dark_ff_image), cmap="gray") #.astype(np.uint8)
+plt.imshow((mean_flat_ff_image - mean_dark_ff_image), cmap="gray", vmin=0, vmax=4095) #.astype(np.uint8)
 
 
 corrected_image = flat_fielding(mean_flat_ff_image, mean_dark_ff_image, test_image)
